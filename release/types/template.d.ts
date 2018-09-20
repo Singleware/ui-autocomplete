@@ -47,16 +47,28 @@ export declare class Template extends Control.Component<Properties> {
      */
     private skeleton;
     /**
-     * Autocomplete elements.
+     * Invalidates the specified input element.
+     * @param input Input element.
      */
-    private elements;
+    private invalidateField;
     /**
-     * Selects the specified option.
-     * @param option Option information.
+     * Validates the specified input element.
+     * @param input Input element.
+     */
+    private validateField;
+    /**
+     * Selects the specified item into the specified input element.
+     * @param input Input element.
+     * @param item Item information.
+     */
+    private selectInputItem;
+    /**
+     * Selects the specified item.
+     * @param item Item information.
      */
     private selectItem;
     /**
-     * Build the result options list.
+     * Build the result items list.
      */
     private buildItemList;
     /**
@@ -65,13 +77,9 @@ export declare class Template extends Control.Component<Properties> {
      */
     private notifySearch;
     /**
-     * Close event handler.
+     * Focus event handler.
      */
-    private closeHandler;
-    /**
-     * Open event handler.
-     */
-    private openHandler;
+    private focusHandler;
     /**
      * Preserve event handler.
      * @param event Event information.
@@ -119,7 +127,11 @@ export declare class Template extends Control.Component<Properties> {
     /**
     * Set autocomplete value.
     */
-    value: Selection | undefined;
+    value: string | undefined;
+    /**
+     * Get selected item.
+     */
+    readonly selected: Selection | undefined;
     /**
      * Get empty state.
      */
@@ -168,17 +180,21 @@ export declare class Template extends Control.Component<Properties> {
      */
     readonly element: Element;
     /**
-     * Adds the specified option into the autocompletion results.
-     * @param label Option text label.
-     * @param value Option value.
-     * @param group Option group.
-     * @returns Returns the generated option element.
+     * Adds the specified item into the autocompletion results.
+     * @param label Item text label.
+     * @param value Item value.
+     * @param group Item group.
+     * @returns Returns the generated item element.
      */
     add(label: string, value: string, group?: string): HTMLDivElement;
     /**
      * Clear all search results.
      */
     clear(): void;
+    /**
+     * Opens the autocompletion panel.
+     */
+    open(): void;
     /**
      * Closes the autocompletion panel.
      */

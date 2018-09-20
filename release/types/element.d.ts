@@ -17,6 +17,10 @@ export interface Element extends HTMLDivElement {
    */
   value: Selection;
   /**
+   * Selected item.
+   */
+  readonly selected: Selection;
+  /**
    * Determines whether the autocomplete is empty or not.
    */
   readonly empty: boolean;
@@ -45,17 +49,21 @@ export interface Element extends HTMLDivElement {
    */
   disabled: boolean;
   /**
-   * Adds the specified option into the autocompletion results.
+   * Adds the specified item into the autocompletion results.
    * @param label Option text label.
    * @param value Option value.
    * @param group Option group.
-   * @returns Returns the generated option element.
+   * @returns Returns the generated item element.
    */
-  add: (label: string, value: string, group?: string) => void;
+  add: (label: string, value: string, group?: string) => HTMLDivElement;
   /**
    * Clear all search results.
    */
   clear: () => void;
+  /**
+   * Opens the autocompletion panel.
+   */
+  open: () => void;
   /**
    * Closes the autocompletion panel.
    */

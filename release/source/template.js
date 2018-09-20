@@ -31,7 +31,7 @@ let Template = Template_1 = class Template extends Control.Component {
          */
         this.states = {
             selection: void 0,
-            options: [],
+            items: [],
             remote: false,
             delay: 250
         };
@@ -84,40 +84,63 @@ let Template = Template_1 = class Template extends Control.Component {
          * Autocomplete skeleton.
          */
         this.skeleton = (DOM.create("div", { slot: this.properties.slot, class: this.properties.class }, this.children));
-        /**
-         * Autocomplete elements.
-         */
-        this.elements = DOM.append(this.skeleton.attachShadow({ mode: 'closed' }), this.styles, this.autocomplete);
+        DOM.append(this.skeleton.attachShadow({ mode: 'closed' }), this.styles, this.autocomplete);
         this.bindHandlers();
         this.bindProperties();
         this.assignProperties();
     }
     /**
-     * Selects the specified option.
-     * @param option Option information.
+     * Invalidates the specified input element.
+     * @param input Input element.
      */
-    selectItem(option) {
-        const input = Control.getChildByProperty(this.inputSlot, 'value');
+    invalidateField(input) {
+        input.setCustomValidity('Select a valid item.');
+        input.dataset.invalid = 'on';
+        delete input.dataset.valid;
+    }
+    /**
+     * Validates the specified input element.
+     * @param input Input element.
+     */
+    validateField(input) {
+        input.setCustomValidity('');
+        input.dataset.valid = 'on';
+        delete input.dataset.invalid;
+    }
+    /**
+     * Selects the specified item into the specified input element.
+     * @param input Input element.
+     * @param item Item information.
+     */
+    selectInputItem(input, item) {
         if (input) {
-            input.value = option.label;
-            input.setCustomValidity('');
+            input.value = item.label;
+            this.validateField(input);
             delete input.dataset.empty;
         }
         if (this.states.selection) {
-            this.states.selection.element.classList.remove('active');
+            delete this.states.selection.element.dataset.checked;
         }
-        option.element.classList.add('active');
-        this.states.selection = option;
+        item.element.dataset.checked = 'on';
+        this.states.selection = item;
     }
     /**
-     * Build the result options list.
+     * Selects the specified item.
+     * @param item Item information.
+     */
+    selectItem(item) {
+        const input = Control.getChildByProperty(this.inputSlot, 'value');
+        this.selectInputItem(input, item);
+    }
+    /**
+     * Build the result items list.
      */
     buildItemList() {
         const children = this.resultsSlot.assignedNodes();
         for (const child of children) {
             DOM.clear(child);
-            for (const option of this.states.options) {
-                DOM.append(child, option.element);
+            for (const item of this.states.items) {
+                DOM.append(child, item.element);
             }
         }
     }
@@ -133,19 +156,13 @@ let Template = Template_1 = class Template extends Control.Component {
         }
     }
     /**
-     * Close event handler.
+     * Focus event handler.
      */
-    closeHandler() {
-        this.close();
-    }
-    /**
-     * Open event handler.
-     */
-    openHandler() {
+    focusHandler() {
         const input = Control.getChildByProperty(this.inputSlot, 'value');
         if (input && input.value.length) {
             this.close();
-            DOM.append(this.autocomplete, this.states.options.length ? this.resultsSlot : this.emptySlot);
+            DOM.append(this.autocomplete, this.states.items.length ? this.resultsSlot : this.emptySlot);
         }
     }
     /**
@@ -166,11 +183,11 @@ let Template = Template_1 = class Template extends Control.Component {
             if (this.states.selection) {
                 if (this.states.selection.label !== input.value) {
                     this.states.selection = void 0;
-                    input.setCustomValidity('Select an valid option.');
+                    this.invalidateField(input);
                 }
             }
             else {
-                input.setCustomValidity('Select an valid option.');
+                this.invalidateField(input);
             }
             clearTimeout(this.timer);
             this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
@@ -185,9 +202,9 @@ let Template = Template_1 = class Template extends Control.Component {
      * Bind event handlers to update the custom element.
      */
     bindHandlers() {
-        document.addEventListener('click', this.closeHandler.bind(this));
+        document.addEventListener('click', this.close.bind(this));
         this.skeleton.addEventListener('click', this.preserveHandler.bind(this));
-        this.skeleton.addEventListener('focus', this.openHandler.bind(this), true);
+        this.skeleton.addEventListener('focus', this.focusHandler.bind(this), true);
         this.skeleton.addEventListener('keyup', this.changeHandler.bind(this), true);
     }
     /**
@@ -207,6 +224,7 @@ let Template = Template_1 = class Template extends Control.Component {
             disabled: super.bindDescriptor(this, Template_1.prototype, 'disabled'),
             add: super.bindDescriptor(this, Template_1.prototype, 'add'),
             clear: super.bindDescriptor(this, Template_1.prototype, 'clear'),
+            open: super.bindDescriptor(this, Template_1.prototype, 'open'),
             close: super.bindDescriptor(this, Template_1.prototype, 'close'),
             setCustomError: super.bindDescriptor(this, Template_1.prototype, 'setCustomError'),
             setCustomValidity: super.bindDescriptor(this, Template_1.prototype, 'setCustomValidity')
@@ -247,32 +265,39 @@ let Template = Template_1 = class Template extends Control.Component {
      * Get autocomplete value.
      */
     get value() {
-        const selection = this.states.selection;
-        return selection ? { label: selection.label, value: selection.value, group: selection.group } : void 0;
+        return this.states.selection ? this.states.selection.value : void 0;
     }
     /**
      * Set autocomplete value.
      */
-    set value(input) {
+    set value(value) {
+        const input = Control.getChildByProperty(this.inputSlot, 'value');
         this.states.selection = void 0;
-        if (input) {
-            for (const option of this.states.options) {
-                if (option.value === input.value) {
-                    this.selectItem(option);
-                    break;
-                }
-            }
-            if (!this.states.selection) {
-                this.add(input.label, input.value, input.group);
-                this.selectItem(this.states.options[this.states.options.length - 1]);
+        for (const current of this.states.items) {
+            if (current.value === value) {
+                this.selectInputItem(input, current);
+                return;
             }
         }
+        if (!this.states.selection) {
+            input.dataset.empty = 'on';
+        }
+    }
+    /**
+     * Get selected item.
+     */
+    get selected() {
+        const selection = this.states.selection;
+        if (selection) {
+            return { label: selection.label, value: selection.value, group: selection.group };
+        }
+        return void 0;
     }
     /**
      * Get empty state.
      */
     get empty() {
-        return this.value === void 0;
+        return this.selected === void 0;
     }
     /**
      * Get search value.
@@ -353,32 +378,46 @@ let Template = Template_1 = class Template extends Control.Component {
         return this.skeleton;
     }
     /**
-     * Adds the specified option into the autocompletion results.
-     * @param label Option text label.
-     * @param value Option value.
-     * @param group Option group.
-     * @returns Returns the generated option element.
+     * Adds the specified item into the autocompletion results.
+     * @param label Item text label.
+     * @param value Item value.
+     * @param group Item group.
+     * @returns Returns the generated item element.
      */
     add(label, value, group) {
         const element = DOM.create("div", { class: "item" }, label || value);
-        const option = { element: element, value: value, label: label, group: group };
-        this.states.options.push(option);
-        this.close();
-        DOM.append(this.autocomplete, this.resultsSlot);
-        this.buildItemList();
-        option.element.addEventListener('click', () => {
-            this.selectItem(option);
+        const item = { element: element, value: value, label: label, group: group };
+        item.element.addEventListener('click', () => {
             this.close();
+            this.selectItem(item);
+            this.skeleton.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
         });
-        return option.element;
+        this.states.items.push(item);
+        if (this.value === value) {
+            this.selectItem(item);
+        }
+        return item.element;
     }
     /**
      * Clear all search results.
      */
     clear() {
-        this.states.options = [];
+        this.states.items = [];
         this.close();
         DOM.append(this.autocomplete, this.emptySlot);
+    }
+    /**
+     * Opens the autocompletion panel.
+     */
+    open() {
+        this.close();
+        if (this.states.items.length) {
+            DOM.append(this.autocomplete, this.resultsSlot);
+            this.buildItemList();
+        }
+        else {
+            DOM.append(this.autocomplete, this.emptySlot);
+        }
     }
     /**
      * Closes the autocompletion panel.
@@ -394,7 +433,7 @@ let Template = Template_1 = class Template extends Control.Component {
      * @param error Custom error message or element.
      */
     setCustomError(error) {
-        this.states.options = [];
+        this.states.items = [];
         this.close();
         DOM.append(this.autocomplete, this.errorSlot);
         const children = this.errorSlot.assignedNodes();
@@ -445,7 +484,13 @@ __decorate([
 ], Template.prototype, "skeleton", void 0);
 __decorate([
     Class.Private()
-], Template.prototype, "elements", void 0);
+], Template.prototype, "invalidateField", null);
+__decorate([
+    Class.Private()
+], Template.prototype, "validateField", null);
+__decorate([
+    Class.Private()
+], Template.prototype, "selectInputItem", null);
 __decorate([
     Class.Private()
 ], Template.prototype, "selectItem", null);
@@ -457,10 +502,7 @@ __decorate([
 ], Template.prototype, "notifySearch", null);
 __decorate([
     Class.Private()
-], Template.prototype, "closeHandler", null);
-__decorate([
-    Class.Private()
-], Template.prototype, "openHandler", null);
+], Template.prototype, "focusHandler", null);
 __decorate([
     Class.Private()
 ], Template.prototype, "preserveHandler", null);
@@ -485,6 +527,9 @@ __decorate([
 __decorate([
     Class.Public()
 ], Template.prototype, "value", null);
+__decorate([
+    Class.Public()
+], Template.prototype, "selected", null);
 __decorate([
     Class.Public()
 ], Template.prototype, "empty", null);
@@ -515,6 +560,9 @@ __decorate([
 __decorate([
     Class.Public()
 ], Template.prototype, "clear", null);
+__decorate([
+    Class.Public()
+], Template.prototype, "open", null);
 __decorate([
     Class.Public()
 ], Template.prototype, "close", null);
