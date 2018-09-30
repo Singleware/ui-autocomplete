@@ -214,21 +214,23 @@ export class Template extends Control.Component<Properties> {
   @Class.Private()
   private changeHandler(): void {
     const input = Control.getChildByProperty(this.inputSlot, 'value') as HTMLInputElement;
-    if (input && input.value.length) {
-      if (this.states.selection) {
-        if (this.states.selection.label !== input.value) {
-          this.states.selection = void 0;
+    if (input) {
+      if (input.value.length) {
+        if (this.states.selection) {
+          if (this.states.selection.label !== input.value) {
+            this.states.selection = void 0;
+            this.invalidateField(input);
+          }
+        } else {
           this.invalidateField(input);
         }
+        clearTimeout(this.timer);
+        this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
+        delete input.dataset.empty;
       } else {
-        this.invalidateField(input);
+        input.dataset.empty = 'on';
+        this.close();
       }
-      clearTimeout(this.timer);
-      this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
-      delete input.dataset.empty;
-    } else {
-      input.dataset.empty = 'on';
-      this.close();
     }
   }
 
@@ -248,24 +250,24 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Private()
   private bindProperties(): void {
-    Object.defineProperties(this.skeleton, {
-      type: super.bindDescriptor(this, Template.prototype, 'type'),
-      name: super.bindDescriptor(this, Template.prototype, 'name'),
-      value: super.bindDescriptor(this, Template.prototype, 'value'),
-      empty: super.bindDescriptor(this, Template.prototype, 'empty'),
-      search: super.bindDescriptor(this, Template.prototype, 'search'),
-      remote: super.bindDescriptor(this, Template.prototype, 'remote'),
-      delay: super.bindDescriptor(this, Template.prototype, 'delay'),
-      required: super.bindDescriptor(this, Template.prototype, 'required'),
-      readOnly: super.bindDescriptor(this, Template.prototype, 'readOnly'),
-      disabled: super.bindDescriptor(this, Template.prototype, 'disabled'),
-      add: super.bindDescriptor(this, Template.prototype, 'add'),
-      clear: super.bindDescriptor(this, Template.prototype, 'clear'),
-      open: super.bindDescriptor(this, Template.prototype, 'open'),
-      close: super.bindDescriptor(this, Template.prototype, 'close'),
-      setCustomError: super.bindDescriptor(this, Template.prototype, 'setCustomError'),
-      setCustomValidity: super.bindDescriptor(this, Template.prototype, 'setCustomValidity')
-    });
+    this.bindComponentProperties(this.skeleton, [
+      'type',
+      'name',
+      'value',
+      'empty',
+      'search',
+      'remote',
+      'delay',
+      'required',
+      'readOnly',
+      'disabled',
+      'add',
+      'clear',
+      'open',
+      'close',
+      'setCustomError',
+      'setCustomValidity'
+    ]);
   }
 
   /**
@@ -273,7 +275,7 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Private()
   private assignProperties(): void {
-    Control.assignProperties(this, this.properties, ['type', 'name', 'value', 'remote', 'delay', 'required', 'readOnly', 'disabled']);
+    this.assignComponentProperties(this.properties, ['type', 'name', 'value', 'remote', 'delay', 'required', 'readOnly', 'disabled']);
     this.changeHandler();
   }
 

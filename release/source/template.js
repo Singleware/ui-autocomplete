@@ -6,8 +6,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var Template_1;
-"use strict";
 /**
  * Copyright (C) 2018 Silas B. Domingos
  * This source code is licensed under the MIT License as described in the file LICENSE.
@@ -18,7 +16,7 @@ const Control = require("@singleware/ui-control");
 /**
  * Autocomplete template class.
  */
-let Template = Template_1 = class Template extends Control.Component {
+let Template = class Template extends Control.Component {
     /**
      * Default constructor.
      * @param properties Autocomplete properties.
@@ -179,23 +177,25 @@ let Template = Template_1 = class Template extends Control.Component {
      */
     changeHandler() {
         const input = Control.getChildByProperty(this.inputSlot, 'value');
-        if (input && input.value.length) {
-            if (this.states.selection) {
-                if (this.states.selection.label !== input.value) {
-                    this.states.selection = void 0;
+        if (input) {
+            if (input.value.length) {
+                if (this.states.selection) {
+                    if (this.states.selection.label !== input.value) {
+                        this.states.selection = void 0;
+                        this.invalidateField(input);
+                    }
+                }
+                else {
                     this.invalidateField(input);
                 }
+                clearTimeout(this.timer);
+                this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
+                delete input.dataset.empty;
             }
             else {
-                this.invalidateField(input);
+                input.dataset.empty = 'on';
+                this.close();
             }
-            clearTimeout(this.timer);
-            this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
-            delete input.dataset.empty;
-        }
-        else {
-            input.dataset.empty = 'on';
-            this.close();
         }
     }
     /**
@@ -211,30 +211,30 @@ let Template = Template_1 = class Template extends Control.Component {
      * Bind exposed properties to the custom element.
      */
     bindProperties() {
-        Object.defineProperties(this.skeleton, {
-            type: super.bindDescriptor(this, Template_1.prototype, 'type'),
-            name: super.bindDescriptor(this, Template_1.prototype, 'name'),
-            value: super.bindDescriptor(this, Template_1.prototype, 'value'),
-            empty: super.bindDescriptor(this, Template_1.prototype, 'empty'),
-            search: super.bindDescriptor(this, Template_1.prototype, 'search'),
-            remote: super.bindDescriptor(this, Template_1.prototype, 'remote'),
-            delay: super.bindDescriptor(this, Template_1.prototype, 'delay'),
-            required: super.bindDescriptor(this, Template_1.prototype, 'required'),
-            readOnly: super.bindDescriptor(this, Template_1.prototype, 'readOnly'),
-            disabled: super.bindDescriptor(this, Template_1.prototype, 'disabled'),
-            add: super.bindDescriptor(this, Template_1.prototype, 'add'),
-            clear: super.bindDescriptor(this, Template_1.prototype, 'clear'),
-            open: super.bindDescriptor(this, Template_1.prototype, 'open'),
-            close: super.bindDescriptor(this, Template_1.prototype, 'close'),
-            setCustomError: super.bindDescriptor(this, Template_1.prototype, 'setCustomError'),
-            setCustomValidity: super.bindDescriptor(this, Template_1.prototype, 'setCustomValidity')
-        });
+        this.bindComponentProperties(this.skeleton, [
+            'type',
+            'name',
+            'value',
+            'empty',
+            'search',
+            'remote',
+            'delay',
+            'required',
+            'readOnly',
+            'disabled',
+            'add',
+            'clear',
+            'open',
+            'close',
+            'setCustomError',
+            'setCustomValidity'
+        ]);
     }
     /**
      * Assign all element properties.
      */
     assignProperties() {
-        Control.assignProperties(this, this.properties, ['type', 'name', 'value', 'remote', 'delay', 'required', 'readOnly', 'disabled']);
+        this.assignComponentProperties(this.properties, ['type', 'name', 'value', 'remote', 'delay', 'required', 'readOnly', 'disabled']);
         this.changeHandler();
     }
     /**
@@ -572,7 +572,7 @@ __decorate([
 __decorate([
     Class.Public()
 ], Template.prototype, "setCustomValidity", null);
-Template = Template_1 = __decorate([
+Template = __decorate([
     Class.Describe()
 ], Template);
 exports.Template = Template;
