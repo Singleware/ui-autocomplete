@@ -29,6 +29,10 @@ export interface Element extends HTMLDivElement {
    */
   readonly search: string;
   /**
+   * Determines whether the search must be pre loaded or not.
+   */
+  preload: boolean;
+  /**
    * Determines whether the search is remote or not.
    */
   remote: boolean;

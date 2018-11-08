@@ -22,8 +22,9 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Private()
   private states = {
-    selection: void 0,
     items: [],
+    selection: void 0,
+    preload: false,
     remote: false,
     delay: 250
   } as States;
@@ -65,10 +66,21 @@ export class Template extends Control.Component<Properties> {
   private resultsSlot = <slot name="results" class="results" /> as HTMLSlotElement;
 
   /**
+   * Autocomplete dropdown.
+   */
+  @Class.Private()
+  private dropdown = <div class="dropdown" /> as HTMLDivElement;
+
+  /**
    * Autocomplete element.
    */
   @Class.Private()
-  private autocomplete = <label class="autocomplete">{this.inputSlot}</label> as HTMLLabelElement;
+  private autocomplete = (
+    <label class="autocomplete">
+      {this.inputSlot}
+      {this.dropdown}
+    </label>
+  ) as HTMLLabelElement;
 
   /**
    * Autocomplete styles.
@@ -83,16 +95,17 @@ export class Template extends Control.Component<Properties> {
   height: inherit;
   width: inherit;
 }
-:host > .autocomplete > .empty::slotted(*),
-:host > .autocomplete > .error::slotted(*),
-:host > .autocomplete > .loading::slotted(*),
-:host > .autocomplete > .results::slotted(*) {
-  display: block;
+:host > .autocomplete > .dropdown {
   position: absolute;
-  border: 0.0625rem solid black;
-  top: 100%;
   width: 100%;
+  top: 100%;
   z-index: 1;
+}
+:host > .autocomplete > .dropdown > .empty::slotted(*),
+:host > .autocomplete > .dropdown > .error::slotted(*),
+:host > .autocomplete > .dropdown > .loading::slotted(*),
+:host > .autocomplete > .dropdown > .results::slotted(*) {
+  border: 0.0625rem solid black;
 }`}
     </style>
   ) as HTMLStyleElement;
@@ -127,6 +140,15 @@ export class Template extends Control.Component<Properties> {
     input.setCustomValidity('');
     input.dataset.valid = 'on';
     delete input.dataset.invalid;
+  }
+
+  /**
+   * Replaces the current dropdown element by the new slot element.
+   * @param slot Slot element.
+   */
+  @Class.Private()
+  private replaceDropdown(slot: HTMLSlotElement): void {
+    DOM.append(DOM.clear(this.dropdown), slot);
   }
 
   /**
@@ -173,15 +195,31 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Notify input searches.
+   * Notify the input searches.
    * @param input Input element.
    */
   @Class.Private()
   private notifySearch(input: HTMLInputElement): void {
-    this.close();
     if (input.value.length) {
-      DOM.append(this.autocomplete, this.remote ? this.loadingSlot : this.emptySlot);
+      this.replaceDropdown(this.remote ? this.loadingSlot : this.emptySlot);
       this.skeleton.dispatchEvent(new Event('search', { bubbles: true, cancelable: false }));
+    } else {
+      this.close();
+    }
+  }
+
+  /**
+   * Preload data.
+   * @param forced Determines whether the preload must be forced or not.
+   */
+  @Class.Private()
+  private openPreload(forced: boolean): void {
+    if (forced || !this.states.items.length) {
+      this.states.items = [];
+      this.skeleton.dispatchEvent(new Event('preload', { bubbles: true, cancelable: false }));
+    }
+    if (this.states.items.length) {
+      this.open();
     }
   }
 
@@ -191,9 +229,12 @@ export class Template extends Control.Component<Properties> {
   @Class.Private()
   private focusHandler(): void {
     const input = Control.getChildByProperty(this.inputSlot, 'value') as HTMLInputElement;
-    if (input && input.value.length) {
-      this.close();
-      DOM.append(this.autocomplete, this.states.items.length ? this.resultsSlot : this.emptySlot);
+    if (input && (this.states.preload || input.value.length)) {
+      if (this.states.preload) {
+        this.openPreload(false);
+      } else {
+        this.open();
+      }
     }
   }
 
@@ -228,8 +269,14 @@ export class Template extends Control.Component<Properties> {
         this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
         delete input.dataset.empty;
       } else {
+        this.validateField(input);
+        this.states.selection = void 0;
         input.dataset.empty = 'on';
-        this.close();
+        if (this.properties.preload) {
+          this.openPreload(true);
+        } else {
+          this.close();
+        }
       }
     }
   }
@@ -256,6 +303,7 @@ export class Template extends Control.Component<Properties> {
       'value',
       'empty',
       'search',
+      'preload',
       'remote',
       'delay',
       'required',
@@ -275,7 +323,17 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Private()
   private assignProperties(): void {
-    this.assignComponentProperties(this.properties, ['type', 'name', 'value', 'remote', 'delay', 'required', 'readOnly', 'disabled']);
+    this.assignComponentProperties(this.properties, [
+      'type',
+      'name',
+      'value',
+      'preload',
+      'remote',
+      'delay',
+      'required',
+      'readOnly',
+      'disabled'
+    ]);
     this.changeHandler();
   }
 
@@ -373,6 +431,21 @@ export class Template extends Control.Component<Properties> {
   @Class.Public()
   public get search(): any {
     return Control.getChildProperty(this.inputSlot, 'value');
+  }
+
+  /**
+   * Get preload state.
+   */
+  @Class.Public()
+  public get preload(): boolean {
+    return this.states.preload;
+  }
+
+  /**
+   * Set preload state.
+   */
+  public set preload(state: boolean) {
+    this.states.preload = state;
   }
 
   /**
@@ -493,8 +566,7 @@ export class Template extends Control.Component<Properties> {
   @Class.Public()
   public clear(): void {
     this.states.items = [];
-    this.close();
-    DOM.append(this.autocomplete, this.emptySlot);
+    this.replaceDropdown(this.emptySlot);
   }
 
   /**
@@ -502,12 +574,11 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Public()
   public open(): void {
-    this.close();
     if (this.states.items.length) {
-      DOM.append(this.autocomplete, this.resultsSlot);
+      this.replaceDropdown(this.resultsSlot);
       this.buildItemList();
     } else {
-      DOM.append(this.autocomplete, this.emptySlot);
+      this.replaceDropdown(this.emptySlot);
     }
   }
 
@@ -516,10 +587,7 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Public()
   public close(): void {
-    this.emptySlot.remove();
-    this.errorSlot.remove();
-    this.loadingSlot.remove();
-    this.resultsSlot.remove();
+    DOM.clear(this.dropdown);
   }
 
   /**
@@ -529,8 +597,7 @@ export class Template extends Control.Component<Properties> {
   @Class.Public()
   public setCustomError(error: JSX.Element): void {
     this.states.items = [];
-    this.close();
-    DOM.append(this.autocomplete, this.errorSlot);
+    this.replaceDropdown(this.errorSlot);
     const children = this.errorSlot.assignedNodes() as HTMLElement[];
     for (const child of children) {
       DOM.append(DOM.clear(child), error);

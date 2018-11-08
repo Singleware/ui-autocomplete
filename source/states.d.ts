@@ -17,6 +17,10 @@ export interface States {
    */
   items: Item[];
   /**
+   * Current preload status.
+   */
+  preload: boolean;
+  /**
    * Current remote state.
    */
   remote: boolean;

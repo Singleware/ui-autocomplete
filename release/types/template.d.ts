@@ -35,6 +35,10 @@ export declare class Template extends Control.Component<Properties> {
      */
     private resultsSlot;
     /**
+     * Autocomplete dropdown.
+     */
+    private dropdown;
+    /**
      * Autocomplete element.
      */
     private autocomplete;
@@ -57,6 +61,11 @@ export declare class Template extends Control.Component<Properties> {
      */
     private validateField;
     /**
+     * Replaces the current dropdown element by the new slot element.
+     * @param slot Slot element.
+     */
+    private replaceDropdown;
+    /**
      * Selects the specified item into the specified input element.
      * @param input Input element.
      * @param item Item information.
@@ -72,10 +81,15 @@ export declare class Template extends Control.Component<Properties> {
      */
     private buildItemList;
     /**
-     * Notify input searches.
+     * Notify the input searches.
      * @param input Input element.
      */
     private notifySearch;
+    /**
+     * Preload data.
+     * @param forced Determines whether the preload must be forced or not.
+     */
+    private openPreload;
     /**
      * Focus event handler.
      */
@@ -140,6 +154,13 @@ export declare class Template extends Control.Component<Properties> {
      * Get search value.
      */
     readonly search: any;
+    /**
+     * Get preload state.
+     */
+    /**
+    * Set preload state.
+    */
+    preload: boolean;
     /**
      * Get remote state.
      */
