@@ -7,33 +7,39 @@ import * as DOM from '@singleware/jsx';
 import * as Control from '@singleware/ui-control';
 
 import { Properties } from './properties';
-import { Selection } from './selection';
 import { Element } from './element';
 import { States } from './states';
-import { Item } from './item';
+import { Render } from './render';
+import { Option } from './option';
 
 /**
  * Autocomplete template class.
  */
 @Class.Describe()
-export class Template extends Control.Component<Properties> {
+export class Template<T extends Properties = Properties> extends Control.Component<T> {
+  /**
+   * Timer Id.
+   */
+  @Class.Private()
+  private timerId: any;
+
+  /**
+   * Matched options entities to the options elements.
+   */
+  @Class.Private()
+  private matchedElements = new WeakMap<Option, HTMLElement>();
+
   /**
    * Autocomplete states.
    */
   @Class.Private()
   private states = {
-    items: [],
-    selection: void 0,
+    options: [],
+    selected: void 0,
     preload: false,
     remote: false,
     delay: 250
   } as States;
-
-  /**
-   * Timer Id.
-   */
-  @Class.Private()
-  private timer: any;
 
   /**
    * Input slot.
@@ -126,7 +132,7 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Private()
   private invalidateField(input: HTMLInputElement): void {
-    input.setCustomValidity('Select a valid item.');
+    input.setCustomValidity('Select a valid option.');
     input.dataset.invalid = 'on';
     delete input.dataset.valid;
   }
@@ -152,50 +158,50 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Selects the specified item into the specified input element.
+   * Selects the specified option into the specified input element.
    * @param input Input element.
-   * @param item Item information.
+   * @param option Option entity.
    */
   @Class.Private()
-  private selectInputItem(input: HTMLInputElement, item: Item): void {
+  private selectInputOption(input: HTMLInputElement, option: Option): void {
     if (input) {
-      input.value = item.label;
+      input.value = option.label;
       this.validateField(input);
       delete input.dataset.empty;
     }
-    if (this.states.selection) {
-      delete this.states.selection.element.dataset.checked;
+    if (this.states.selected) {
+      delete (this.matchedElements.get(this.states.selected) as HTMLElement).dataset.active;
     }
-    item.element.dataset.checked = 'on';
-    this.states.selection = item;
+    this.states.selected = option;
+    (this.matchedElements.get(option) as HTMLElement).dataset.active = 'on';
   }
 
   /**
-   * Selects the specified item.
-   * @param item Item information.
+   * Selects the specified option.
+   * @param option Option entity.
    */
   @Class.Private()
-  private selectItem(item: Item): void {
+  private selectOption(option: Option): void {
     const input = Control.getChildByProperty(this.inputSlot, 'value') as HTMLInputElement;
-    this.selectInputItem(input, item);
+    this.selectInputOption(input, option);
   }
 
   /**
-   * Build the result items list.
+   * Build the options list.
    */
   @Class.Private()
-  private buildItemList(): void {
+  private buildOptionsList(): void {
     const children = this.resultsSlot.assignedNodes() as HTMLElement[];
     for (const child of children) {
       DOM.clear(child);
-      for (const item of this.states.items) {
-        DOM.append(child, item.element);
+      for (const option of this.states.options) {
+        DOM.append(child, this.matchedElements.get(option));
       }
     }
   }
 
   /**
-   * Notify the input searches.
+   * Notify any input search.
    * @param input Input element.
    */
   @Class.Private()
@@ -209,16 +215,31 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
+   * Renders a new option element for the specified option entity.
+   * @param option Option entity.
+   * @returns Returns the rendered option.
+   */
+  @Class.Private()
+  private renderOption(option: Option): HTMLElement {
+    const detail = { input: option, output: void 0 } as Render;
+    const event = new CustomEvent<Render>('renderoption', { bubbles: true, cancelable: true, detail: detail });
+    if (!this.skeleton.dispatchEvent(event) || !detail.output) {
+      return <div class="option">{option.label}</div> as HTMLDivElement;
+    }
+    return detail.output;
+  }
+
+  /**
    * Preload data.
    * @param forced Determines whether the preload must be forced or not.
    */
   @Class.Private()
   private openPreload(forced: boolean): void {
-    if (forced || !this.states.items.length) {
-      this.states.items = [];
+    if (forced || !this.states.options.length) {
+      this.states.options = [];
       this.skeleton.dispatchEvent(new Event('preload', { bubbles: true, cancelable: false }));
     }
-    if (this.states.items.length) {
+    if (this.states.options.length) {
       this.open();
     }
   }
@@ -257,20 +278,20 @@ export class Template extends Control.Component<Properties> {
     const input = Control.getChildByProperty(this.inputSlot, 'value') as HTMLInputElement;
     if (input) {
       if (input.value.length) {
-        if (this.states.selection) {
-          if (this.states.selection.label !== input.value) {
-            this.states.selection = void 0;
+        if (this.states.selected) {
+          if (this.states.selected.label !== input.value) {
+            this.states.selected = void 0;
             this.invalidateField(input);
           }
         } else {
           this.invalidateField(input);
         }
-        clearTimeout(this.timer);
-        this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
+        clearTimeout(this.timerId);
+        this.timerId = setTimeout(this.notifySearch.bind(this, input), this.delay);
         delete input.dataset.empty;
       } else {
         this.validateField(input);
-        this.states.selection = void 0;
+        this.states.selected = void 0;
         input.dataset.empty = 'on';
         if (this.properties.preload) {
           this.openPreload(true);
@@ -282,6 +303,28 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
+   * Render option handler.
+   * @param event Event information.
+   */
+  @Class.Private()
+  private renderOptionHandler(event: CustomEvent<Render>): void {
+    if (this.properties.onRenderOption) {
+      event.detail.output = this.properties.onRenderOption(event.detail.input);
+    }
+  }
+
+  /**
+   * Selects the specified option entity.
+   * @param option Option entity.
+   */
+  @Class.Private()
+  private selectOptionHandler(option: Option): void {
+    this.close();
+    this.selectOption(option);
+    this.skeleton.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
+  }
+
+  /**
    * Bind event handlers to update the custom element.
    */
   @Class.Private()
@@ -290,6 +333,7 @@ export class Template extends Control.Component<Properties> {
     this.skeleton.addEventListener('click', this.preserveHandler.bind(this));
     this.skeleton.addEventListener('focus', this.focusHandler.bind(this), true);
     this.skeleton.addEventListener('keyup', this.changeHandler.bind(this), true);
+    this.skeleton.addEventListener('renderoption', this.renderOptionHandler.bind(this));
   }
 
   /**
@@ -342,7 +386,7 @@ export class Template extends Control.Component<Properties> {
    * @param properties Autocomplete properties.
    * @param children Autocomplete children.
    */
-  constructor(properties?: Properties, children?: any[]) {
+  constructor(properties?: T, children?: any[]) {
     super(properties, children);
     DOM.append(this.skeleton.attachShadow({ mode: 'closed' }), this.styles, this.autocomplete);
     this.bindHandlers();
@@ -351,7 +395,7 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Get autocomplete name.
+   * Gets the autocomplete name.
    */
   @Class.Public()
   public get name(): string {
@@ -359,14 +403,14 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set autocomplete name.
+   * Sets the autocomplete name.
    */
   public set name(name: string) {
     Control.setChildProperty(this.inputSlot, 'name', name);
   }
 
   /**
-   * Get autocomplete type.
+   * Gets the autocomplete type.
    */
   @Class.Public()
   public get type(): string {
@@ -374,51 +418,45 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set autocomplete type.
+   * Sets the autocomplete type.
    */
   public set type(type: string) {
     Control.setChildProperty(this.inputSlot, 'type', type);
   }
 
   /**
-   * Get autocomplete value.
+   * Gets the autocomplete value.
    */
   @Class.Public()
   public get value(): string | undefined {
-    return this.states.selection ? this.states.selection.value : void 0;
+    return this.states.selected ? this.states.selected.value : void 0;
   }
 
   /**
-   * Set autocomplete value.
+   * Sets the autocomplete value.
    */
   public set value(value: string | undefined) {
     const input = Control.getChildByProperty(this.inputSlot, 'value') as HTMLInputElement;
-    this.states.selection = void 0;
-    for (const current of this.states.items) {
-      if (current.value === value) {
-        this.selectInputItem(input, current);
-        return;
-      }
-    }
-    if (!this.states.selection) {
+    const option = this.states.options.find((option: Option) => option.value === value);
+    if (option) {
+      this.selectInputOption(input, option);
+    } else if (this.states.selected) {
+      delete (this.matchedElements.get(this.states.selected) as HTMLElement).dataset.active;
+      this.states.selected = void 0;
       input.dataset.empty = 'on';
     }
   }
 
   /**
-   * Get selected item.
+   * Gets the selected option.
    */
   @Class.Public()
-  public get selected(): Selection | undefined {
-    const selection = this.states.selection;
-    if (selection) {
-      return { label: selection.label, value: selection.value, group: selection.group };
-    }
-    return void 0;
+  public get selected(): Option | undefined {
+    return this.states.selected ? { ...this.states.selected } : void 0;
   }
 
   /**
-   * Get empty state.
+   * Gets the empty state.
    */
   @Class.Public()
   public get empty(): any {
@@ -426,7 +464,7 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Get search value.
+   * Gets the search value.
    */
   @Class.Public()
   public get search(): any {
@@ -434,7 +472,7 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Get preload state.
+   * Gets the preload state.
    */
   @Class.Public()
   public get preload(): boolean {
@@ -442,14 +480,14 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set preload state.
+   * Sets the preload state.
    */
   public set preload(state: boolean) {
     this.states.preload = state;
   }
 
   /**
-   * Get remote state.
+   * Gets the remote state.
    */
   @Class.Public()
   public get remote(): boolean {
@@ -457,14 +495,14 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set remote state.
+   * Sets the remote state.
    */
   public set remote(state: boolean) {
     this.states.remote = state;
   }
 
   /**
-   * Get delay state.
+   * Gets the delay state.
    */
   @Class.Public()
   public get delay(): number {
@@ -472,14 +510,14 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set delay state.
+   * Sets the delay state.
    */
   public set delay(milliseconds: number) {
     this.states.delay = milliseconds;
   }
 
   /**
-   * Get required state.
+   * Gets the required state.
    */
   @Class.Public()
   public get required(): boolean {
@@ -487,14 +525,14 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set required state.
+   * Sets the required state.
    */
   public set required(state: boolean) {
     Control.setChildProperty(this.inputSlot, 'required', state);
   }
 
   /**
-   * Get read-only state.
+   * Gets the read-only state.
    */
   @Class.Public()
   public get readOnly(): boolean {
@@ -502,7 +540,7 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set read-only state.
+   * Sets the read-only state.
    */
   public set readOnly(state: boolean) {
     Control.setChildProperty(this.inputSlot, 'readOnly', state);
@@ -520,7 +558,7 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Set disabled state.
+   * Sets the disabled state.
    */
   public set disabled(state: boolean) {
     Control.setChildProperty(this.inputSlot, 'disabled', state);
@@ -538,26 +576,21 @@ export class Template extends Control.Component<Properties> {
   }
 
   /**
-   * Adds the specified item into the autocompletion results.
-   * @param label Item text label.
-   * @param value Item value.
-   * @param group Item group.
-   * @returns Returns the generated item element.
+   * Adds a new option into the autocomplete results.
+   * @param label Option label.
+   * @param value Option value.
+   * @param group Option group.
    */
   @Class.Public()
-  public add(label: string, value: string, group?: string): HTMLDivElement {
-    const element = <div class="item">{label || value}</div> as HTMLDivElement;
-    const item = { element: element, value: value, label: label, group: group };
-    item.element.addEventListener('click', () => {
-      this.close();
-      this.selectItem(item);
-      this.skeleton.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
-    });
-    this.states.items.push(item);
+  public add(label: string, value: string, group?: string): void {
+    const option = { value: value, label: label, group: group };
+    const element = this.renderOption(option);
+    this.states.options.push(option);
+    this.matchedElements.set(option, element);
+    element.addEventListener('click', this.selectOptionHandler.bind(this, option));
     if (this.value === value) {
-      this.selectItem(item);
+      this.selectOption(option);
     }
-    return item.element;
   }
 
   /**
@@ -565,7 +598,8 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Public()
   public clear(): void {
-    this.states.items = [];
+    this.states.selected = void 0;
+    this.states.options = [];
     this.replaceDropdown(this.emptySlot);
   }
 
@@ -574,9 +608,9 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Public()
   public open(): void {
-    if (this.states.items.length) {
+    if (this.states.options.length) {
       this.replaceDropdown(this.resultsSlot);
-      this.buildItemList();
+      this.buildOptionsList();
     } else {
       this.replaceDropdown(this.emptySlot);
     }
@@ -596,12 +630,9 @@ export class Template extends Control.Component<Properties> {
    */
   @Class.Public()
   public setCustomError(error: JSX.Element): void {
-    this.states.items = [];
+    this.states.options = [];
     this.replaceDropdown(this.errorSlot);
-    const children = this.errorSlot.assignedNodes() as HTMLElement[];
-    for (const child of children) {
-      DOM.append(DOM.clear(child), error);
-    }
+    (this.errorSlot.assignedNodes() as HTMLElement[]).forEach((child: HTMLElement) => DOM.append(DOM.clear(child), error));
   }
 
   /**

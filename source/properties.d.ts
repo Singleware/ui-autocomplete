@@ -2,7 +2,7 @@
  * Copyright (C) 2018 Silas B. Domingos
  * This source code is licensed under the MIT License as described in the file LICENSE.
  */
-import { Selection } from './selection';
+import { Option } from './option';
 
 /**
  * Autocomplete properties interface.
@@ -23,7 +23,7 @@ export interface Properties {
   /**
    * Autocomplete value.
    */
-  value?: Selection;
+  value?: any;
   /**
    * Determines whether the search must be pre loaded or not.
    */
@@ -52,4 +52,8 @@ export interface Properties {
    * Autocomplete children.
    */
   children?: {};
+  /**
+   * Render option event.
+   */
+  onRenderOption?: (option: Option) => HTMLElement | undefined;
 }

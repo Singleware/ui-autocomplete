@@ -4,23 +4,19 @@
  */
 
 /**
- * Autocomplete item interface.
+ * Autocomplete option interface.
  */
-export interface Item {
+export interface Option {
   /**
-   * Item text label.
-   */
-  label: string;
-  /**
-   * Item value.
+   * Option value.
    */
   value: string;
   /**
-   * Item element.
+   * Option label.
    */
-  element: HTMLDivElement;
+  label: string;
   /**
-   * Item group name.
+   * Option group name.
    */
   group?: string;
 }

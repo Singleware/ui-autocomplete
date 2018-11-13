@@ -25,11 +25,15 @@ let Template = class Template extends Control.Component {
     constructor(properties, children) {
         super(properties, children);
         /**
+         * Matched options entities to the options elements.
+         */
+        this.matchedElements = new WeakMap();
+        /**
          * Autocomplete states.
          */
         this.states = {
-            items: [],
-            selection: void 0,
+            options: [],
+            selected: void 0,
             preload: false,
             remote: false,
             delay: 250
@@ -100,7 +104,7 @@ let Template = class Template extends Control.Component {
      * @param input Input element.
      */
     invalidateField(input) {
-        input.setCustomValidity('Select a valid item.');
+        input.setCustomValidity('Select a valid option.');
         input.dataset.invalid = 'on';
         delete input.dataset.valid;
     }
@@ -121,44 +125,44 @@ let Template = class Template extends Control.Component {
         DOM.append(DOM.clear(this.dropdown), slot);
     }
     /**
-     * Selects the specified item into the specified input element.
+     * Selects the specified option into the specified input element.
      * @param input Input element.
-     * @param item Item information.
+     * @param option Option entity.
      */
-    selectInputItem(input, item) {
+    selectInputOption(input, option) {
         if (input) {
-            input.value = item.label;
+            input.value = option.label;
             this.validateField(input);
             delete input.dataset.empty;
         }
-        if (this.states.selection) {
-            delete this.states.selection.element.dataset.checked;
+        if (this.states.selected) {
+            delete this.matchedElements.get(this.states.selected).dataset.active;
         }
-        item.element.dataset.checked = 'on';
-        this.states.selection = item;
+        this.states.selected = option;
+        this.matchedElements.get(option).dataset.active = 'on';
     }
     /**
-     * Selects the specified item.
-     * @param item Item information.
+     * Selects the specified option.
+     * @param option Option entity.
      */
-    selectItem(item) {
+    selectOption(option) {
         const input = Control.getChildByProperty(this.inputSlot, 'value');
-        this.selectInputItem(input, item);
+        this.selectInputOption(input, option);
     }
     /**
-     * Build the result items list.
+     * Build the options list.
      */
-    buildItemList() {
+    buildOptionsList() {
         const children = this.resultsSlot.assignedNodes();
         for (const child of children) {
             DOM.clear(child);
-            for (const item of this.states.items) {
-                DOM.append(child, item.element);
+            for (const option of this.states.options) {
+                DOM.append(child, this.matchedElements.get(option));
             }
         }
     }
     /**
-     * Notify the input searches.
+     * Notify any input search.
      * @param input Input element.
      */
     notifySearch(input) {
@@ -171,15 +175,28 @@ let Template = class Template extends Control.Component {
         }
     }
     /**
+     * Renders a new option element for the specified option entity.
+     * @param option Option entity.
+     * @returns Returns the rendered option.
+     */
+    renderOption(option) {
+        const detail = { input: option, output: void 0 };
+        const event = new CustomEvent('renderoption', { bubbles: true, cancelable: true, detail: detail });
+        if (!this.skeleton.dispatchEvent(event) || !detail.output) {
+            return DOM.create("div", { class: "option" }, option.label);
+        }
+        return detail.output;
+    }
+    /**
      * Preload data.
      * @param forced Determines whether the preload must be forced or not.
      */
     openPreload(forced) {
-        if (forced || !this.states.items.length) {
-            this.states.items = [];
+        if (forced || !this.states.options.length) {
+            this.states.options = [];
             this.skeleton.dispatchEvent(new Event('preload', { bubbles: true, cancelable: false }));
         }
-        if (this.states.items.length) {
+        if (this.states.options.length) {
             this.open();
         }
     }
@@ -213,22 +230,22 @@ let Template = class Template extends Control.Component {
         const input = Control.getChildByProperty(this.inputSlot, 'value');
         if (input) {
             if (input.value.length) {
-                if (this.states.selection) {
-                    if (this.states.selection.label !== input.value) {
-                        this.states.selection = void 0;
+                if (this.states.selected) {
+                    if (this.states.selected.label !== input.value) {
+                        this.states.selected = void 0;
                         this.invalidateField(input);
                     }
                 }
                 else {
                     this.invalidateField(input);
                 }
-                clearTimeout(this.timer);
-                this.timer = setTimeout(this.notifySearch.bind(this, input), this.delay);
+                clearTimeout(this.timerId);
+                this.timerId = setTimeout(this.notifySearch.bind(this, input), this.delay);
                 delete input.dataset.empty;
             }
             else {
                 this.validateField(input);
-                this.states.selection = void 0;
+                this.states.selected = void 0;
                 input.dataset.empty = 'on';
                 if (this.properties.preload) {
                     this.openPreload(true);
@@ -240,6 +257,24 @@ let Template = class Template extends Control.Component {
         }
     }
     /**
+     * Render option handler.
+     * @param event Event information.
+     */
+    renderOptionHandler(event) {
+        if (this.properties.onRenderOption) {
+            event.detail.output = this.properties.onRenderOption(event.detail.input);
+        }
+    }
+    /**
+     * Selects the specified option entity.
+     * @param option Option entity.
+     */
+    selectOptionHandler(option) {
+        this.close();
+        this.selectOption(option);
+        this.skeleton.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
+    }
+    /**
      * Bind event handlers to update the custom element.
      */
     bindHandlers() {
@@ -247,6 +282,7 @@ let Template = class Template extends Control.Component {
         this.skeleton.addEventListener('click', this.preserveHandler.bind(this));
         this.skeleton.addEventListener('focus', this.focusHandler.bind(this), true);
         this.skeleton.addEventListener('keyup', this.changeHandler.bind(this), true);
+        this.skeleton.addEventListener('renderoption', this.renderOptionHandler.bind(this));
     }
     /**
      * Bind exposed properties to the custom element.
@@ -290,129 +326,124 @@ let Template = class Template extends Control.Component {
         this.changeHandler();
     }
     /**
-     * Get autocomplete name.
+     * Gets the autocomplete name.
      */
     get name() {
         return Control.getChildProperty(this.inputSlot, 'name');
     }
     /**
-     * Set autocomplete name.
+     * Sets the autocomplete name.
      */
     set name(name) {
         Control.setChildProperty(this.inputSlot, 'name', name);
     }
     /**
-     * Get autocomplete type.
+     * Gets the autocomplete type.
      */
     get type() {
         return Control.getChildProperty(this.inputSlot, 'type');
     }
     /**
-     * Set autocomplete type.
+     * Sets the autocomplete type.
      */
     set type(type) {
         Control.setChildProperty(this.inputSlot, 'type', type);
     }
     /**
-     * Get autocomplete value.
+     * Gets the autocomplete value.
      */
     get value() {
-        return this.states.selection ? this.states.selection.value : void 0;
+        return this.states.selected ? this.states.selected.value : void 0;
     }
     /**
-     * Set autocomplete value.
+     * Sets the autocomplete value.
      */
     set value(value) {
         const input = Control.getChildByProperty(this.inputSlot, 'value');
-        this.states.selection = void 0;
-        for (const current of this.states.items) {
-            if (current.value === value) {
-                this.selectInputItem(input, current);
-                return;
-            }
+        const option = this.states.options.find((option) => option.value === value);
+        if (option) {
+            this.selectInputOption(input, option);
         }
-        if (!this.states.selection) {
+        else if (this.states.selected) {
+            delete this.matchedElements.get(this.states.selected).dataset.active;
+            this.states.selected = void 0;
             input.dataset.empty = 'on';
         }
     }
     /**
-     * Get selected item.
+     * Gets the selected option.
      */
     get selected() {
-        const selection = this.states.selection;
-        if (selection) {
-            return { label: selection.label, value: selection.value, group: selection.group };
-        }
-        return void 0;
+        return this.states.selected ? { ...this.states.selected } : void 0;
     }
     /**
-     * Get empty state.
+     * Gets the empty state.
      */
     get empty() {
         return this.selected === void 0;
     }
     /**
-     * Get search value.
+     * Gets the search value.
      */
     get search() {
         return Control.getChildProperty(this.inputSlot, 'value');
     }
     /**
-     * Get preload state.
+     * Gets the preload state.
      */
     get preload() {
         return this.states.preload;
     }
     /**
-     * Set preload state.
+     * Sets the preload state.
      */
     set preload(state) {
         this.states.preload = state;
     }
     /**
-     * Get remote state.
+     * Gets the remote state.
      */
     get remote() {
         return this.states.remote;
     }
     /**
-     * Set remote state.
+     * Sets the remote state.
      */
     set remote(state) {
         this.states.remote = state;
     }
     /**
-     * Get delay state.
+     * Gets the delay state.
      */
     get delay() {
         return this.states.delay;
     }
     /**
-     * Set delay state.
+     * Sets the delay state.
      */
     set delay(milliseconds) {
         this.states.delay = milliseconds;
     }
     /**
-     * Get required state.
+     * Gets the required state.
      */
     get required() {
         return Control.getChildProperty(this.inputSlot, 'required');
     }
     /**
-     * Set required state.
+     * Sets the required state.
      */
     set required(state) {
         Control.setChildProperty(this.inputSlot, 'required', state);
     }
     /**
-     * Get read-only state.
+     * Gets the read-only state.
      */
     get readOnly() {
         return Control.getChildProperty(this.inputSlot, 'readOnly');
     }
     /**
-     * Set read-only state.
+     * Sets the read-only state.
      */
     set readOnly(state) {
         Control.setChildProperty(this.inputSlot, 'readOnly', state);
@@ -427,7 +458,7 @@ let Template = class Template extends Control.Component {
         return Control.getChildProperty(this.inputSlot, 'disabled');
     }
     /**
-     * Set disabled state.
+     * Sets the disabled state.
      */
     set disabled(state) {
         Control.setChildProperty(this.inputSlot, 'disabled', state);
@@ -442,40 +473,36 @@ let Template = class Template extends Control.Component {
         return this.skeleton;
     }
     /**
-     * Adds the specified item into the autocompletion results.
-     * @param label Item text label.
-     * @param value Item value.
-     * @param group Item group.
-     * @returns Returns the generated item element.
+     * Adds a new option into the autocomplete results.
+     * @param label Option label.
+     * @param value Option value.
+     * @param group Option group.
      */
     add(label, value, group) {
-        const element = DOM.create("div", { class: "item" }, label || value);
-        const item = { element: element, value: value, label: label, group: group };
-        item.element.addEventListener('click', () => {
-            this.close();
-            this.selectItem(item);
-            this.skeleton.dispatchEvent(new Event('change', { bubbles: true, cancelable: false }));
-        });
-        this.states.items.push(item);
+        const option = { value: value, label: label, group: group };
+        const element = this.renderOption(option);
+        this.states.options.push(option);
+        this.matchedElements.set(option, element);
+        element.addEventListener('click', this.selectOptionHandler.bind(this, option));
         if (this.value === value) {
-            this.selectItem(item);
+            this.selectOption(option);
         }
-        return item.element;
     }
     /**
      * Clear all search results.
      */
     clear() {
-        this.states.items = [];
+        this.states.selected = void 0;
+        this.states.options = [];
         this.replaceDropdown(this.emptySlot);
     }
     /**
      * Opens the autocompletion panel.
      */
     open() {
-        if (this.states.items.length) {
+        if (this.states.options.length) {
             this.replaceDropdown(this.resultsSlot);
-            this.buildItemList();
+            this.buildOptionsList();
         }
         else {
             this.replaceDropdown(this.emptySlot);
@@ -492,12 +519,9 @@ let Template = class Template extends Control.Component {
      * @param error Custom error message or element.
      */
     setCustomError(error) {
-        this.states.items = [];
+        this.states.options = [];
         this.replaceDropdown(this.errorSlot);
-        const children = this.errorSlot.assignedNodes();
-        for (const child of children) {
-            DOM.append(DOM.clear(child), error);
-        }
+        this.errorSlot.assignedNodes().forEach((child) => DOM.append(DOM.clear(child), error));
     }
     /**
      * Set the custom validity error message.
@@ -512,10 +536,13 @@ let Template = class Template extends Control.Component {
 };
 __decorate([
     Class.Private()
-], Template.prototype, "states", void 0);
+], Template.prototype, "timerId", void 0);
 __decorate([
     Class.Private()
-], Template.prototype, "timer", void 0);
+], Template.prototype, "matchedElements", void 0);
+__decorate([
+    Class.Private()
+], Template.prototype, "states", void 0);
 __decorate([
     Class.Private()
 ], Template.prototype, "inputSlot", void 0);
@@ -554,16 +581,19 @@ __decorate([
 ], Template.prototype, "replaceDropdown", null);
 __decorate([
     Class.Private()
-], Template.prototype, "selectInputItem", null);
+], Template.prototype, "selectInputOption", null);
 __decorate([
     Class.Private()
-], Template.prototype, "selectItem", null);
+], Template.prototype, "selectOption", null);
 __decorate([
     Class.Private()
-], Template.prototype, "buildItemList", null);
+], Template.prototype, "buildOptionsList", null);
 __decorate([
     Class.Private()
 ], Template.prototype, "notifySearch", null);
+__decorate([
+    Class.Private()
+], Template.prototype, "renderOption", null);
 __decorate([
     Class.Private()
 ], Template.prototype, "openPreload", null);
@@ -576,6 +606,12 @@ __decorate([
 __decorate([
     Class.Private()
 ], Template.prototype, "changeHandler", null);
+__decorate([
+    Class.Private()
+], Template.prototype, "renderOptionHandler", null);
+__decorate([
+    Class.Private()
+], Template.prototype, "selectOptionHandler", null);
 __decorate([
     Class.Private()
 ], Template.prototype, "bindHandlers", null);

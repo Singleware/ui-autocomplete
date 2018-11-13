@@ -2,30 +2,30 @@
  * Copyright (C) 2018 Silas B. Domingos
  * This source code is licensed under the MIT License as described in the file LICENSE.
  */
-import { Item } from './item';
+import { Option } from './option';
 
 /**
  * Autocomplete states interface.
  */
 export interface States {
   /**
-   * Current selected item.
+   * Selected option.
    */
-  selection: Item | undefined;
+  selected: Option | undefined;
   /**
-   * Current result items.
+   * Current options.
    */
-  items: Item[];
+  options: Option[];
   /**
-   * Current preload status.
+   * Preload status.
    */
   preload: boolean;
   /**
-   * Current remote state.
+   * Remote state.
    */
   remote: boolean;
   /**
-   * Current delay.
+   * Delay time (in milliseconds).
    */
   delay: number;
 }

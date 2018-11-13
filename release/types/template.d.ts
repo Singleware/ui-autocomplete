@@ -1,19 +1,23 @@
 import * as Control from '@singleware/ui-control';
 import { Properties } from './properties';
-import { Selection } from './selection';
 import { Element } from './element';
+import { Option } from './option';
 /**
  * Autocomplete template class.
  */
-export declare class Template extends Control.Component<Properties> {
+export declare class Template<T extends Properties = Properties> extends Control.Component<T> {
+    /**
+     * Timer Id.
+     */
+    private timerId;
+    /**
+     * Matched options entities to the options elements.
+     */
+    private matchedElements;
     /**
      * Autocomplete states.
      */
     private states;
-    /**
-     * Timer Id.
-     */
-    private timer;
     /**
      * Input slot.
      */
@@ -66,25 +70,31 @@ export declare class Template extends Control.Component<Properties> {
      */
     private replaceDropdown;
     /**
-     * Selects the specified item into the specified input element.
+     * Selects the specified option into the specified input element.
      * @param input Input element.
-     * @param item Item information.
+     * @param option Option entity.
      */
-    private selectInputItem;
+    private selectInputOption;
     /**
-     * Selects the specified item.
-     * @param item Item information.
+     * Selects the specified option.
+     * @param option Option entity.
      */
-    private selectItem;
+    private selectOption;
     /**
-     * Build the result items list.
+     * Build the options list.
      */
-    private buildItemList;
+    private buildOptionsList;
     /**
-     * Notify the input searches.
+     * Notify any input search.
      * @param input Input element.
      */
     private notifySearch;
+    /**
+     * Renders a new option element for the specified option entity.
+     * @param option Option entity.
+     * @returns Returns the rendered option.
+     */
+    private renderOption;
     /**
      * Preload data.
      * @param forced Determines whether the preload must be forced or not.
@@ -104,6 +114,16 @@ export declare class Template extends Control.Component<Properties> {
      */
     private changeHandler;
     /**
+     * Render option handler.
+     * @param event Event information.
+     */
+    private renderOptionHandler;
+    /**
+     * Selects the specified option entity.
+     * @param option Option entity.
+     */
+    private selectOptionHandler;
+    /**
      * Bind event handlers to update the custom element.
      */
     private bindHandlers;
@@ -120,80 +140,80 @@ export declare class Template extends Control.Component<Properties> {
      * @param properties Autocomplete properties.
      * @param children Autocomplete children.
      */
-    constructor(properties?: Properties, children?: any[]);
+    constructor(properties?: T, children?: any[]);
     /**
-     * Get autocomplete name.
+     * Gets the autocomplete name.
      */
     /**
-    * Set autocomplete name.
+    * Sets the autocomplete name.
     */
     name: string;
     /**
-     * Get autocomplete type.
+     * Gets the autocomplete type.
      */
     /**
-    * Set autocomplete type.
+    * Sets the autocomplete type.
     */
     type: string;
     /**
-     * Get autocomplete value.
+     * Gets the autocomplete value.
      */
     /**
-    * Set autocomplete value.
+    * Sets the autocomplete value.
     */
     value: string | undefined;
     /**
-     * Get selected item.
+     * Gets the selected option.
      */
-    readonly selected: Selection | undefined;
+    readonly selected: Option | undefined;
     /**
-     * Get empty state.
+     * Gets the empty state.
      */
     readonly empty: any;
     /**
-     * Get search value.
+     * Gets the search value.
      */
     readonly search: any;
     /**
-     * Get preload state.
+     * Gets the preload state.
      */
     /**
-    * Set preload state.
+    * Sets the preload state.
     */
     preload: boolean;
     /**
-     * Get remote state.
+     * Gets the remote state.
      */
     /**
-    * Set remote state.
+    * Sets the remote state.
     */
     remote: boolean;
     /**
-     * Get delay state.
+     * Gets the delay state.
      */
     /**
-    * Set delay state.
+    * Sets the delay state.
     */
     delay: number;
     /**
-     * Get required state.
+     * Gets the required state.
      */
     /**
-    * Set required state.
+    * Sets the required state.
     */
     required: boolean;
     /**
-     * Get read-only state.
+     * Gets the read-only state.
      */
     /**
-    * Set read-only state.
+    * Sets the read-only state.
     */
     readOnly: boolean;
     /**
      * Get disabled state.
      */
     /**
-    * Set disabled state.
+    * Sets the disabled state.
     */
     disabled: boolean;
     /**
@@ -201,13 +221,12 @@ export declare class Template extends Control.Component<Properties> {
      */
     readonly element: Element;
     /**
-     * Adds the specified item into the autocompletion results.
-     * @param label Item text label.
-     * @param value Item value.
-     * @param group Item group.
-     * @returns Returns the generated item element.
+     * Adds a new option into the autocomplete results.
+     * @param label Option label.
+     * @param value Option value.
+     * @param group Option group.
      */
-    add(label: string, value: string, group?: string): HTMLDivElement;
+    add(label: string, value: string, group?: string): void;
     /**
      * Clear all search results.
      */

@@ -2,7 +2,7 @@
  * Copyright (C) 2018 Silas B. Domingos
  * This source code is licensed under the MIT License as described in the file LICENSE.
  */
-import { Selection } from './selection';
+import { Option } from './option';
 
 /**
  * Autocomplete element interface.
@@ -15,11 +15,11 @@ export interface Element extends HTMLDivElement {
   /**
    * Autocomplete value.
    */
-  value: Selection;
+  value: any;
   /**
    * Selected item.
    */
-  readonly selected: Selection;
+  readonly selected: Option;
   /**
    * Determines whether the autocomplete is empty or not.
    */
@@ -37,7 +37,7 @@ export interface Element extends HTMLDivElement {
    */
   remote: boolean;
   /**
-   * Minimum delay to start the search.
+   * Minimum delay to start searching.
    */
   delay: number;
   /**
@@ -53,13 +53,12 @@ export interface Element extends HTMLDivElement {
    */
   disabled: boolean;
   /**
-   * Adds the specified item into the autocompletion results.
-   * @param label Option text label.
+   * Adds a new option into the autocomplete results.
+   * @param label Option label.
    * @param value Option value.
    * @param group Option group.
-   * @returns Returns the generated item element.
    */
-  add: (label: string, value: string, group?: string) => HTMLDivElement;
+  add: (label: string, value: string, group?: string) => void;
   /**
    * Clear all search results.
    */

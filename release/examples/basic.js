@@ -26,8 +26,6 @@ field.readOnly = true;
 field.required = true;
 // Change name property of the element.
 field.name = 'new-name';
+field.add('Test', 'test-id');
 // Change value property of the element.
-field.value = {
-    label: 'New value',
-    value: 'new-value'
-};
+field.value = 'test-id';
